@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -38,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.modifier.modifierLocalConsumer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,6 +45,8 @@ import com.example.supercompras.ui.theme.Coral
 import com.example.supercompras.ui.theme.Marinho
 import com.example.supercompras.ui.theme.SuperComprasTheme
 import com.example.supercompras.ui.theme.Typography
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,11 +63,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AdicionarItem(aoSalvarItem: (texto: String) -> Unit, modifier: Modifier = Modifier) {
-    var texto = rememberSaveable() { mutableStateOf("") }
+fun AdicionarItem(aoSalvarItem: (item: ItemCompra) -> Unit, modifier: Modifier = Modifier) {
+    var texto by rememberSaveable() { mutableStateOf("") }
     OutlinedTextField(
-        value = texto.value,
-        onValueChange = { texto.value = it },
+        value = texto,
+        onValueChange = { texto = it },
         placeholder = {
             Text(text="Digite o item que deseja adicionar",
                 color = Color.Gray,
@@ -83,8 +83,8 @@ fun AdicionarItem(aoSalvarItem: (texto: String) -> Unit, modifier: Modifier = Mo
 
     Button(
         onClick = {
-            aoSalvarItem(texto.value)
-            texto.value = ""
+            aoSalvarItem(ItemCompra(texto, getDataHora(), false))
+            texto = ""
         },
         shape = RoundedCornerShape(24.dp),
         modifier = modifier,
@@ -100,6 +100,12 @@ fun AdicionarItem(aoSalvarItem: (texto: String) -> Unit, modifier: Modifier = Mo
     }
 }
 
+fun getDataHora(): String {
+    val dataHoraAtual = System.currentTimeMillis()
+    val dataHoraFormatada = SimpleDateFormat("EEEE (dd/MM/yyyy) 'às' HH:mm", Locale("pt", "BR"))
+    return dataHoraFormatada.format(dataHoraAtual)
+}
+
 @Composable
 fun ListaDeCompras(modifier: Modifier = Modifier) {
     var listaDeItens by rememberSaveable { mutableStateOf(listOf<ItemCompra>()) }
@@ -109,8 +115,8 @@ fun ListaDeCompras(modifier: Modifier = Modifier) {
         modifier = modifier
     ) {
         ImagemTopo()
-        AdicionarItem(aoSalvarItem = { textoNovo ->
-            listaDeItens = listaDeItens + ItemCompra(textoNovo)
+        AdicionarItem(aoSalvarItem = { novoItem ->
+            listaDeItens = listaDeItens + novoItem
         })
         Spacer(modifier = Modifier.height(48.dp))
         Titulo("Lista de Compras")
@@ -292,7 +298,7 @@ fun ItemDaLista(
             }
         }
         Text(
-            "Segunda-feira (31/10/2022) às 08:30",
+            item.datahora,
             Modifier.padding(8.dp),
             style = Typography.labelSmall
         )
@@ -319,7 +325,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 private fun ItemDaListaPreview() {
     SuperComprasTheme {
-        ItemDaLista(ItemCompra(texto = "Suco"))
+        ItemDaLista(ItemCompra(texto = "Suco", getDataHora(), false))
     }
 }
 
@@ -357,5 +363,6 @@ fun GreetingPreview() {
 
 data class ItemCompra(
     val texto: String,
+    val datahora: String,
     var foiComprado: Boolean = false
 )
