@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
@@ -37,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.modifier.modifierLocalConsumer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -112,58 +114,30 @@ fun ListaDeCompras(modifier: Modifier = Modifier) {
         })
         Spacer(modifier = Modifier.height(48.dp))
         Titulo("Lista de Compras")
-        Column {
-            listaDeItens.forEach { item ->
-                ItemDaLista(
-                    item = item,
-                    aoMudarStatus = {
-                        listaDeItens = listaDeItens.map { itemSelecionado ->
-                            if (it == itemSelecionado) {
-                                it.copy(foiComprado = !it.foiComprado)
-                            } else {
-                                it
-                            }
-                        }
-                    },
-                    aoEditarItem = { itemEditado ->
-                        listaDeItens = listaDeItens.map { itemAtual ->
-                            if (itemAtual == item) {
-                                itemEditado.copy(texto = itemEditado.texto)
-                            } else {
-                                itemAtual
-                            }
-                        }
-                    },
-                    aoRemoverItem = { itemRemovido ->
-                        listaDeItens = listaDeItens - itemRemovido
+        ListaDeItens(
+            lista = listaDeItens.filter { !it.foiComprado },
+            aoMudarStatus = { itemSelecionado ->
+                listaDeItens = listaDeItens.map { itemMap ->
+                    if (itemSelecionado == itemMap) {
+                        itemSelecionado.copy(foiComprado = !itemSelecionado.foiComprado)
+                    } else {
+                        itemMap
                     }
-                )
+                }
+            },
+            aoRemoverItem = { itemRemovido ->
+                listaDeItens = listaDeItens - itemRemovido
+            },
+            aoEditarItem = { itemEditado, novoTexto ->
+                listaDeItens = listaDeItens.map { itemAtual ->
+                    if (itemAtual == itemEditado) {
+                        itemAtual.copy(texto = novoTexto)
+                    } else {
+                        itemAtual
+                    }
+                }
             }
-        }
-//        ListaDeItens(
-//            lista = listaDeItens,
-//            aoMudarStatus = { itemSelecionado ->
-//                listaDeItens = listaDeItens.map { itemMap ->
-//                    if (itemSelecionado == itemMap) {
-//                        itemSelecionado.copy(foiComprado = !itemSelecionado.foiComprado)
-//                    } else {
-//                        itemMap
-//                    }
-//                }
-//            },
-//            aoRemoverItem = { itemRemovido ->
-//                listaDeItens = listaDeItens - itemRemovido
-//            },
-//            aoEditarItem = { itemEditado ->
-//                listaDeItens = listaDeItens.map { itemAtual ->
-//                    if (itemAtual == itemEditado) {
-//                        itemAtual.copy(texto = itemEditado.texto)
-//                    } else {
-//                        itemAtual
-//                    }
-//                }
-//            }
-//        )
+        )
         Titulo("Comprado")
 
         if (listaDeItens.any{
@@ -184,10 +158,10 @@ fun ListaDeCompras(modifier: Modifier = Modifier) {
                 aoRemoverItem = { itemRemovido ->
                     listaDeItens = listaDeItens - itemRemovido
                 },
-                aoEditarItem = { itemEditado ->
+                aoEditarItem = { itemEditado, novoTexto ->
                     listaDeItens = listaDeItens.map { itemAtual ->
                         if (itemAtual == itemEditado) {
-                            itemAtual.copy(texto = itemEditado.texto)
+                            itemAtual.copy(texto = novoTexto)
                         } else {
                             itemAtual
                         }
@@ -202,7 +176,7 @@ fun ListaDeCompras(modifier: Modifier = Modifier) {
 fun ListaDeItens(
         lista: List<ItemCompra>,
         aoMudarStatus: (item: ItemCompra) -> Unit = {},
-        aoEditarItem: (item: ItemCompra) -> Unit = {},
+        aoEditarItem: (item: ItemCompra, novoTexto: String) -> Unit = {_, _ -> },
         aoRemoverItem: (item: ItemCompra) -> Unit = {},
         modifier: Modifier = Modifier,
     ) {
@@ -247,7 +221,7 @@ fun ItemDaLista(
     item: ItemCompra,
     aoMudarStatus: (item: ItemCompra) -> Unit = {},
     aoRemoverItem: (item: ItemCompra) -> Unit = {},
-    aoEditarItem: (item: ItemCompra) -> Unit = {},
+    aoEditarItem: (item: ItemCompra, texto: String) -> Unit = {_, _ -> },
     modifier: Modifier = Modifier) {
     Column(
         verticalArrangement = Arrangement.Top,
@@ -257,8 +231,11 @@ fun ItemDaLista(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
         ) {
+            var textoEditado by rememberSaveable { mutableStateOf(item.texto) }
+            var edicao by rememberSaveable { mutableStateOf(false) }
+
             Checkbox(
-                checked = false,
+                checked = item.foiComprado,
                 onCheckedChange = {
                     aoMudarStatus(item)
                 },
@@ -266,12 +243,33 @@ fun ItemDaLista(
                     .padding(end = 8.dp)
                     .requiredSize(24.dp)
             )
-            Text(
-                text = item.texto,
-                modifier = Modifier.weight(1f),
-                style = Typography.bodyMedium,
-                textAlign = TextAlign.Start
-            )
+            if (edicao) {
+                OutlinedTextField(
+                    value = textoEditado,
+                    onValueChange = { textoEditado = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(24.dp)
+                )
+                IconButton(
+                    onClick = {
+                        aoEditarItem(item, textoEditado)
+                        edicao = false
+                              },
+                ) {
+                    Icone(
+                        Icons.Default.Done,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            } else {
+                Text(
+                    text = item.texto,
+                    modifier = Modifier.weight(1f),
+                    style = Typography.bodyMedium,
+                    textAlign = TextAlign.Start
+                )
+            }
             IconButton(
                 onClick = {aoRemoverItem(item)},
                 modifier = Modifier.padding(end = 8.dp)
@@ -283,7 +281,9 @@ fun ItemDaLista(
                 )
             }
             IconButton(
-                onClick = {aoEditarItem(item)},
+                onClick = {
+                    edicao = true
+                          },
             ) {
                 Icone(
                     Icons.Default.Edit,
